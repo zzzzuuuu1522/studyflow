@@ -191,7 +191,9 @@ npm run build
 
 ## 页面截图
 
-项目目前不提交或引用未经确认的页面图片。截图命名、隐私检查和后续添加方式见 [截图目录说明](docs/images/README.md)。
+### 系统页面总览
+
+![StudyFlow 系统页面总览](docs/images/studyflow-overview.png)
 
 ## 后续计划
 
