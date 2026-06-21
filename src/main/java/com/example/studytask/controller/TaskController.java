@@ -1,0 +1,76 @@
+package com.example.studytask.controller;
+
+import com.example.studytask.dto.TaskCreateRequest;
+import com.example.studytask.dto.TaskResponse;
+import com.example.studytask.dto.TaskStatusUpdateRequest;
+import com.example.studytask.dto.TaskUpdateRequest;
+import com.example.studytask.entity.TaskPriority;
+import com.example.studytask.entity.TaskStatus;
+import com.example.studytask.service.TaskService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tasks")
+@CrossOrigin(origins = "http://localhost:5173")
+public class TaskController {
+
+    private final TaskService taskService;
+
+    public TaskController(TaskService taskService) {
+        this.taskService = taskService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public TaskResponse createTask(@Valid @RequestBody TaskCreateRequest request) {
+        return taskService.createTask(request);
+    }
+
+    @GetMapping
+    public List<TaskResponse> getTasks(
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority) {
+        return taskService.getTasks(status, priority);
+    }
+
+    @GetMapping("/{id}")
+    public TaskResponse getTask(@PathVariable Long id) {
+        return taskService.getTask(id);
+    }
+
+    @PutMapping("/{id}")
+    public TaskResponse updateTask(
+            @PathVariable Long id,
+            @Valid @RequestBody TaskUpdateRequest request) {
+        return taskService.updateTask(id, request);
+    }
+
+    @PatchMapping("/{id}/status")
+    public TaskResponse updateStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody TaskStatusUpdateRequest request) {
+        return taskService.updateStatus(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+        taskService.deleteTask(id);
+        return ResponseEntity.noContent().build();
+    }
+}
