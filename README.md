@@ -123,6 +123,8 @@ macOS / Linux：
 
 后端默认地址：`http://localhost:8080`。
 
+前端未设置 `VITE_API_BASE_URL` 时，也会默认请求 `http://localhost:8080`。
+
 ### 4. 启动前端
 
 打开另一个终端：
@@ -163,7 +165,119 @@ npm run dev
 | --- | --- | --- |
 | GET | `/api/statistics/dashboard` | 获取统计面板，可选 `startDate`、`endDate`，默认最近 7 天 |
 
+### 健康检查
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/health` | 返回 `{"status":"ok"}`，供 Railway 健康检查使用 |
+
 接口参数错误会返回统一 JSON，包含 `timestamp`、`status`、`message` 和 `path`。
+
+## 在线部署
+
+推荐按以下顺序部署：
+
+1. 创建 Railway MySQL。
+2. 部署 Railway Spring Boot 后端并取得后端公开地址。
+3. 在 Railway 配置 `APP_CORS_ALLOWED_ORIGIN`；首次可填写预期的 Pages 地址，之后再以实际地址校正。
+4. 部署 Cloudflare Pages 前端，并把 Railway 后端地址填入 `VITE_API_BASE_URL`。
+5. 将 Cloudflare Pages 的实际生产域名回填到 Railway 的 `APP_CORS_ALLOWED_ORIGIN`。
+6. 分别重新部署后端和前端，检查健康接口、页面加载和浏览器 Network 请求。
+
+### 1. Railway MySQL
+
+1. 登录 Railway，点击 **New Project** 或创建一个 **Empty project**。
+2. 在项目画布点击 **+ New / Create**，选择 **Database → Add MySQL**。
+3. 等待 MySQL 服务启动。不要把数据库变量复制到代码、README 或 Git。
+4. 后续在后端服务的 **Variables** 中使用 **Add Reference** 引用 MySQL 服务提供的变量。
+
+### 2. Railway Spring Boot 后端
+
+当前后端位于仓库根目录，使用 Railway 的 Java/Railpack 构建即可，不需要新增 Dockerfile。
+
+1. 在 Railway 项目画布点击 **+ New → GitHub Repo**，选择 StudyFlow 仓库。
+2. 打开创建出的后端 Service，进入 **Settings**。
+3. Root Directory 保持仓库根目录 `/`。
+4. 在 **Build** 中设置 Build Command：
+
+   ```bash
+   ./mvnw -DskipTests package
+   ```
+
+5. 在 **Deploy** 中设置 Start Command：
+
+   ```bash
+   java -jar target/study-task-0.0.1-SNAPSHOT.jar
+   ```
+
+6. 在 **Variables** 中添加生产变量。MySQL 变量建议使用 Railway 的引用变量功能关联刚创建的 MySQL 服务。
+7. 在 **Settings / Healthcheck** 中将 Healthcheck Path 设置为：
+
+   ```text
+   /api/health
+   ```
+
+8. 点击 **Deploy / Redeploy**，在部署日志中确认应用启动。
+9. 进入 **Settings → Networking**，点击 **Generate Domain** 获得后端公开 HTTPS 地址。
+10. 在浏览器访问 `https://<你的Railway后端域名>/api/health`，应返回 `{"status":"ok"}`。
+
+Railway 当前支持从 GitHub 自动识别 Java 项目、配置自定义构建与启动命令，并在 Networking 中生成公开域名。可参考 [Railway Spring Boot 官方指南](https://docs.railway.com/guides/spring-boot) 和 [Railway 构建配置](https://docs.railway.com/guides/build-configuration)。
+
+#### Railway 后端变量
+
+| 变量 | 填写说明 |
+| --- | --- |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `PORT` | Railway 自动注入，不建议手动填写 |
+| `MYSQLHOST` | 引用 Railway MySQL 的 `MYSQLHOST` |
+| `MYSQLPORT` | 引用 Railway MySQL 的 `MYSQLPORT` |
+| `MYSQLDATABASE` | 引用 Railway MySQL 的 `MYSQLDATABASE` |
+| `MYSQLUSER` | 引用 Railway MySQL 的 `MYSQLUSER` |
+| `MYSQLPASSWORD` | 引用 Railway MySQL 的 `MYSQLPASSWORD`，不要写入 Git |
+| `APP_CORS_ALLOWED_ORIGIN` | Cloudflare Pages 实际生产 Origin，例如 `https://studyflow.pages.dev`，不要带路径 |
+| `APP_DEMO_READ_ONLY` | 公开只读演示填写 `true`；需要在线编辑时填写 `false` |
+
+生产配置位于 `application-prod.properties`，监听 Railway 注入的 `PORT`，并通过上述变量连接 MySQL。生产环境关闭 SQL 输出。
+
+当 `APP_DEMO_READ_ONLY=true` 时，所有 `/api/**` 下的 `POST`、`PUT`、`PATCH`、`DELETE` 请求返回 `403` 和稳定错误码 `DEMO_READ_ONLY`；GET 与 OPTIONS 保持可用。本地默认值为 `false`。
+
+### 3. Cloudflare Pages 前端
+
+1. 登录 Cloudflare，进入 **Workers & Pages**。
+2. 点击 **Create application → Pages → Connect to Git**。
+3. 授权并选择 StudyFlow GitHub 仓库，然后点击 **Begin setup**。
+4. 选择生产分支 `main`。
+5. 在构建设置中填写：
+
+   | 字段 | 值 |
+   | --- | --- |
+   | Framework preset | Vue 或 Vite |
+   | Root directory (advanced) | `frontend` |
+   | Build command | `npm run build` |
+   | Build output directory | `dist` |
+
+6. 在 **Environment variables** 添加：
+
+   ```text
+   VITE_API_BASE_URL=https://<你的Railway后端域名>
+   ```
+
+   这里只填写 Origin，不要附加 `/api`，也不要提交真实 `.env` 文件。
+
+7. 点击 **Save and Deploy**。
+8. 首次部署后复制实际 `https://<项目名>.pages.dev` 地址。
+9. 回到 Railway 后端 Service 的 **Variables**，把该地址填写到 `APP_CORS_ALLOWED_ORIGIN`，然后 Redeploy 后端。
+10. 如果修改过 `VITE_API_BASE_URL`，在 Cloudflare Pages 的 **Settings → Environment variables** 保存后重新部署前端。
+
+Cloudflare Pages 的 Git 集成支持设置 monorepo Root directory、构建命令、输出目录和构建环境变量。可参考 [Cloudflare Pages Git 集成](https://developers.cloudflare.com/pages/get-started/git-integration/) 与 [构建配置](https://developers.cloudflare.com/pages/configuration/build-configuration/)。
+
+前端仓库提供安全示例 `frontend/.env.example`：
+
+```properties
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+本地可以复制为 `.env.local` 后修改，但 `.env`、`.env.local`、`.env.production` 都已被 Git 忽略，禁止提交真实部署地址或其他敏感变量。
 
 ## 测试与构建
 

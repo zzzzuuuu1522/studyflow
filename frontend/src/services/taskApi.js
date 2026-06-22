@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:8080/api/tasks'
+import { API_BASE_URL, createApiError, createConnectionError } from './apiConfig'
+
+const TASKS_URL = `${API_BASE_URL}/api/tasks`
 
 // 集中处理 HTTP 响应，让所有组件获得一致、易懂的错误信息。
 async function request(url, options = {}) {
@@ -18,13 +20,13 @@ async function request(url, options = {}) {
     const data = await response.json().catch(() => null)
 
     if (!response.ok) {
-      throw new Error(data?.message || `请求失败（HTTP ${response.status}）`)
+      throw createApiError(data, response.status)
     }
 
     return data
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error('无法连接后端服务，请确认 Spring Boot 已在 8080 端口启动')
+      throw createConnectionError()
     }
     throw error
   }
@@ -36,12 +38,12 @@ export function getTasks(status = '', priority = '') {
   if (priority) params.set('priority', priority)
 
   const query = params.toString()
-  const url = query ? `${API_BASE_URL}?${query}` : API_BASE_URL
+  const url = query ? `${TASKS_URL}?${query}` : TASKS_URL
   return request(url)
 }
 
 export function createTask(task) {
-  return request(API_BASE_URL, {
+  return request(TASKS_URL, {
     method: 'POST',
     body: JSON.stringify(task),
   })
@@ -61,19 +63,19 @@ export function updateTask(id, task) {
     deadline: task.deadline,
   }
 
-  return request(`${API_BASE_URL}/${id}`, {
+  return request(`${TASKS_URL}/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
 }
 
 export function updateTaskStatus(id, status) {
-  return request(`${API_BASE_URL}/${id}/status`, {
+  return request(`${TASKS_URL}/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   })
 }
 
 export function deleteTask(id) {
-  return request(`${API_BASE_URL}/${id}`, { method: 'DELETE' })
+  return request(`${TASKS_URL}/${id}`, { method: 'DELETE' })
 }

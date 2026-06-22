@@ -1,5 +1,7 @@
-const STUDY_RECORDS_URL = 'http://localhost:8080/api/study-records'
-const STATISTICS_URL = 'http://localhost:8080/api/statistics/dashboard'
+import { API_BASE_URL, createApiError, createConnectionError } from './apiConfig'
+
+const STUDY_RECORDS_URL = `${API_BASE_URL}/api/study-records`
+const STATISTICS_URL = `${API_BASE_URL}/api/statistics/dashboard`
 
 async function request(url, options = {}) {
   try {
@@ -15,12 +17,12 @@ async function request(url, options = {}) {
 
     const data = await response.json().catch(() => null)
     if (!response.ok) {
-      throw new Error(data?.message || `请求失败（HTTP ${response.status}）`)
+      throw createApiError(data, response.status)
     }
     return data
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error('无法连接后端服务，请确认 Spring Boot 已在 8080 端口启动')
+      throw createConnectionError()
     }
     throw error
   }

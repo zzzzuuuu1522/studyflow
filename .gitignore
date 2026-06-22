@@ -38,11 +38,15 @@ src/main/resources/application-local.properties
 ### Vue frontend ###
 frontend/node_modules/
 frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
 
 ### Environment and local secrets ###
 .env
 .env.*
 *.local
+!frontend/.env.example
 !src/main/resources/application-local.example.properties
 
 ### Runtime and OS files ###
